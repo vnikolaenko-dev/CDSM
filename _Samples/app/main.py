@@ -10,12 +10,35 @@ from data import db_session
 import random
 import os
 
-
 app = Flask(__name__, template_folder='templates')
 app.config['SECRET_KEY'] = 'b0-sdb-0sbdfb0-bgf0sb-db0vf'
 db_session.global_init("db/blogs.db")
 login_manager = LoginManager()
 login_manager.init_app(app)
+
+
+def view(id_user, level):
+    b = []
+    b2 = []
+    directory = 'static/doc/'
+    for i in os.listdir(directory):
+        if id_user in i and 'done' not in i and (level == 1 or level == 'any'):
+            b.append([i.replace('_', '').replace('done', '').replace('delivered', '').replace('got', '').replace(
+                id_user, '').replace('.csv', ''), 'Ожидает сборки'])
+            b2.append(i)
+        elif id_user in i and 'done' in i and 'delivered' not in i and (level == 2 or level == 'any'):
+            b.append([i.replace('_', '').replace('done', '').replace('delivered', '').replace('got', '').replace(
+                id_user, '').replace('.csv', ''), 'Ожидает доставки'])
+            b2.append(i)
+        elif id_user in i and 'delivered' in i and 'got' not in i and (level == 3 or level == 'any'):
+            b.append([i.replace('_', '').replace('done', '').replace('delivered', '').replace('got', '').replace(
+                id_user, '').replace('.csv', ''), 'Доставлено'])
+            b2.append(i)
+        elif id_user in i and 'delivered' in i and 'got' in i and level == 'any':
+            b.append([i.replace('_', '').replace('done', '').replace('delivered', '').replace('got', '').replace(
+                id_user, '').replace('.csv', ''), 'Получено'])
+            b2.append(i)
+    return b, b2
 
 
 @app.route('/logout')
@@ -29,63 +52,6 @@ def logout():
 def load_user(user_id):
     db_sess = db_session.create_session()
     return db_sess.query(User).get(user_id)
-
-
-@app.route('/news', methods=['GET', 'POST'])
-@login_required
-def add_news():
-    form = NewsForm()
-    if form.validate_on_submit():
-        db_sess = db_session.create_session()
-        news = News()
-        news.title = form.title.data
-        news.content = form.content.data
-        news.is_private = form.is_private.data
-        current_user.news.append(news)
-        db_sess.merge(current_user)
-        db_sess.commit()
-        return redirect('/')
-    return render_template('news.html', title='Добавление новости', form=form)
-
-
-@app.route('/news_delete/<int:id>', methods=['GET', 'POST'])
-@login_required
-def news_delete(id):
-    db_sess = db_session.create_session()
-    news = db_sess.query(News).filter(News.id == id, News.user == current_user).first()
-    if news:
-        db_sess.delete(news)
-        db_sess.commit()
-    else:
-        abort(404)
-    return redirect('/')
-
-
-@app.route('/news/<int:id>', methods=['GET', 'POST'])
-@login_required
-def edit_news(id):
-    form = NewsForm()
-    if request.method == "GET":
-        db_sess = db_session.create_session()
-        news = db_sess.query(News).filter(News.id == id, News.user == current_user).first()
-        if news:
-            form.title.data = news.title
-            form.content.data = news.content
-            form.is_private.data = news.is_private
-        else:
-            abort(404)
-    if form.validate_on_submit():
-        db_sess = db_session.create_session()
-        news = db_sess.query(News).filter(News.id == id, News.user == current_user).first()
-        if news:
-            news.title = form.title.data
-            news.content = form.content.data
-            news.is_private = form.is_private.data
-            db_sess.commit()
-            return redirect('/')
-        else:
-            abort(404)
-    return render_template('news.html', title='Редактирование новости', form=form)
 
 
 @app.route("/")
@@ -104,7 +70,6 @@ def reqister():
     form = RegisterForm()
     if form.validate_on_submit():
         id_user = str(random.randint(10000, 90000))
-        print(form.email.data, form.name.data)
         if form.password.data != form.password_again.data:
             return render_template('Регистрация.html', title='Регистрация', form=form,
                                    message="Пароли не совпадают")
@@ -162,7 +127,6 @@ def createord(id_user, doc):
 def delit(id_user, doc):
     db_sess = db_session.create_session()
     email = str(db_sess.query(User).filter(User.id_user == id_user).first()).split()[-1]
-    print(email)
     mail(doc + " был закрыт.", email)
 
     #  user = db_sess.query(User).filter(User.id_user == id_user).first()
@@ -173,6 +137,9 @@ def delit(id_user, doc):
 
 @app.route('/ord/<id_user>/<doc>/<role>', methods=['GET', 'POST'])
 def look(id_user, doc, role=None):
+    v = 'Заказ - ' + doc.replace('_', '').replace('done', '').replace('delivered', '').replace('got', '').replace(id_user,
+                                                                                                     '').replace('.csv',
+                                                                                                                 '')
     form = Ord()
     with open(f'static/doc/{doc}', "r", encoding='utf-8') as file1:
         # list_ord = ['   '.join(line.strip().split(',')) for line in file1]
@@ -184,11 +151,14 @@ def look(id_user, doc, role=None):
                            items=f"/transport/{id_user}", list_ord=list_ord,
                            createord=f"/createord/{id_user}/{doc}",
                            delite=f"/del_file/{id_user}/{doc}",
-                           face=f"/face/{id_user}")
+                           face=f"/face/{id_user}", doc=v)
 
 
 @app.route('/ord/<id_user>/<doc>', methods=['GET', 'POST'])
 def myorder(id_user, doc, role=None):
+    v = 'Заказ - ' + doc.replace('_', '').replace('done', '').replace('delivered', '').replace('got', '').replace(id_user,
+                                                                                                     '').replace('.csv',
+                                                                                                                 '')
     form = Ord()
     with open(f'static/doc/{doc}', "r", encoding='utf-8') as file1:
         head = file1.readlines()[1:]
@@ -202,7 +172,7 @@ def myorder(id_user, doc, role=None):
                                items=f"/transport/{id_user}", list_ord=list_ord,
                                createord=f"/createord/{id_user}/{doc}",
                                delite=f"/del_file/{id_user}/{doc}",
-                               face=f"/face/{id_user}")
+                               face=f"/face/{id_user}", doc=v)
 
     elif role is None:
         return render_template('Собрано.html', title='Авторизация', user=id_user, add=f"/warehouse/{id_user}",
@@ -210,61 +180,38 @@ def myorder(id_user, doc, role=None):
                                myorder=f"/myorders/{id_user}",
                                items=f"/transport/{id_user}",
                                delite=f"/del_file/{id_user}/{doc}",
-                               face=f"/face/{id_user}", list_ord=list_ord)
+                               face=f"/face/{id_user}", list_ord=list_ord, doc=v)
 
 
 @app.route('/myorders/<id_user>', methods=['GET', 'POST'])
 def myorders(id_user):
     form = Ord()
-    list_ord =[]
-    a = []
-    directory = 'static/doc/'
-    for i in os.listdir(directory):
-        if id_user in i and 'done' not in i:
-            list_ord.append(i + ' - Ожидает сборки')
-            a.append(i)
-        elif id_user in i and 'done' in i and 'delivered' not in i:
-            list_ord.append(i + ' - Ожидает доставки')
-            a.append(i)
-        elif id_user in i and 'delivered' in i and 'got' not in i:
-            list_ord.append(i + ' - Доставлено')
-            a.append(i)
-        elif id_user in i and 'delivered' in i and 'got' in i:
-            list_ord.append(i + ' - Получено')
-            a.append(i)
+    list_ord, ss = view(id_user, 'any')
     return render_template('МоиЗаказы.html', title='Авторизация', form=form, add=f"/warehouse/{id_user}",
                            create=f"/create/{id_user}",
                            createord=f"/ord/{id_user}/",
                            myorder=f"/myorders/{id_user}",
                            items=f"/transport/{id_user}",
-                           face=f"/face/{id_user}", list_ord=list_ord, a=dict(pairs=zip(list_ord, a)))
+                           face=f"/face/{id_user}", list_ord=list_ord, a=dict(pairs=zip(list_ord, ss)))
 
 
 @app.route('/warehouse/<id_user>', methods=['GET', 'POST'])
 def warehouse(id_user):
     form = Ord()
-    list_ord = []
-    directory = 'static/doc/'
-    for i in os.listdir(directory):
-        if id_user in i and 'done' not in i:
-            list_ord.append(i)
+    list_ord, ss = view(id_user, 1)
     return render_template('Склад.html', title='Авторизация', form=form, add=f"/warehouse/{id_user}",
                            create=f"/create/{id_user}",
                            myorder=f"/myorders/{id_user}",
                            items=f"/transport/{id_user}",
                            delite=f"/carrier/{id_user}/",
                            ord=f"/ord/{id_user}/",
-                           face=f"/face/{id_user}", list_ord=list_ord)
+                           face=f"/face/{id_user}", list_ord=list_ord, a=dict(pairs=zip(list_ord, ss)))
 
 
 @app.route('/face/<id_user>', methods=['GET', 'POST'])
 def face(id_user):
     form = Ord()
-    list_ord = []
-    directory = 'static/doc/'
-    for i in os.listdir(directory):
-        if id_user in i and 'delivered' in i and 'got' not in i:
-            list_ord.append(i)
+    list_ord, ss = view(id_user, 3)
     return render_template('Лицо.html', title='Авторизация', form=form, add=f"/warehouse/{id_user}",
                            create=f"/create/{id_user}",
                            myorder=f"/myorders/{id_user}",
@@ -273,25 +220,20 @@ def face(id_user):
                            ord=f"/ord/{id_user}/",
                            face=f"/face/{id_user}",
                            fd=f"/last/{id_user}/",
-                           ls=f"/last/{id_user}/", list_ord=list_ord)
+                           ls=f"/last/{id_user}/", list_ord=list_ord, a=dict(pairs=zip(list_ord, ss)))
 
 
 @app.route('/transport/<id_user>', methods=['GET', 'POST'])
 def transport(id_user):
     form = Ord()
-    list_ord = []
-    directory = 'static/doc/'
-    for i in os.listdir(directory):
-        if id_user in i and 'delivered' not in i:
-            list_ord.append(i)
-
+    list_ord, ss = view(id_user, 2)
     return render_template('Экспидитор.html', title='Авторизация', form=form, add=f"/warehouse/{id_user}",
                            create=f"/create/{id_user}",
                            myorder=f"/myorders/{id_user}",
                            items=f"/transport/{id_user}",
                            dd=f"/delivered/{id_user}/",
                            ord=f"/ord/{id_user}/",
-                           face=f"/face/{id_user}", list_ord=list_ord)
+                           face=f"/face/{id_user}", list_ord=list_ord, a=dict(pairs=zip(list_ord, ss)))
 
 
 @app.route('/delivered/<id_user>/<doc>', methods=['GET', 'POST'])
@@ -301,7 +243,6 @@ def delivered(id_user, doc):
     mail(doc + " был доставлен.", email)
 
     id_user_r = str(doc.split('.')[:-1][0])
-    print(id_user_r, 'static/doc/' + doc)
     os.rename('static/doc/' + doc, f'static/doc/{id_user_r}_delivered.csv')
     return redirect('/transport/' + id_user)
 
@@ -332,7 +273,6 @@ def last(id_user, doc):
 def create(id_user):
     form = Add()
     if form.validate_on_submit():
-
         with open(f'static/doc/{id_user}_{form.name.data}.csv', 'w', newline='', encoding='utf-8') as csvfile:
             writer = csv.writer(csvfile)
             writer.writerow(['Наименование товара', 'Количество', 'Артикул', 'Цена'])
@@ -347,5 +287,3 @@ def create(id_user):
 
 if __name__ == '__main__':
     app.run(port=5000, host='127.0.0.1')
-
-

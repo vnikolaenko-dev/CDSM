@@ -78,15 +78,18 @@
            <tr>
             <th>Наименование товара</th>
             <th>Количество</th>
-               <th>Артикул</th>
-               <th>Цена</th>
+            <th>Артикул</th>
+            <th>Цена</th>
+            <th>Наличие</th>
            </tr>
               {% for item in list_ord %}
            <tr>
             <td>{{item[0]}}</td>
-            <td>{{item[2]}}</td>
+            <td><input type="text" size="3" value={{item[2]}}></td>
             <td>{{item[1]}}</td>
             <td>{{item[3]}}</td>
+               <td><p><input type="checkbox" name="a" value="True"></p></td>
+<!--            <td><li class="u-nav-item"><a class="u-button-style u-nav-link u-text-active-palette-1-base u-text-hover-palette-2-base" href={{item[0]}} style="padding: 10px 20px;">Нет на складе</a></li></td>-->
           </tr>
               {% endfor %}
          </table>
